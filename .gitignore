@@ -74,3 +74,5 @@ compile_commands.json
 *.vcxproj
 *.vcxproj.filters
 *.sln
+.idea/*
+cmake-build-*
