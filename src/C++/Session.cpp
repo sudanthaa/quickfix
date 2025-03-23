@@ -69,7 +69,8 @@ Session::Session( std::function<UtcTimeStamp()> timestamper,
   m_dataDictionaryProvider( dataDictionaryProvider ),
   m_messageStoreFactory( messageStoreFactory ),
   m_pLogFactory( pLogFactory ),
-  m_pResponder( 0 )
+  m_pResponder( 0 ),
+  m_bufferMsgCount( 0 )
 {
   m_state.heartBtInt( heartBtInt );
   m_state.initiate( heartBtInt != 0 );
@@ -111,6 +112,13 @@ void Session::fill( Header& header )
   header.setField( m_sessionID.getTargetCompID() );
   header.setField( MsgSeqNum( getExpectedSenderNum() ) );
   insertSendingTime( header );
+}
+
+void Session::setSendBuffer(int msgCount)
+{
+  m_bufferMsgCount = msgCount;
+  m_sendBuffer = "";
+  m_state.onEvent("Setting msg buffer count to: " + std::to_string( msgCount ));
 }
 
 void Session::next( const UtcTimeStamp& now )
@@ -640,7 +648,16 @@ bool Session::send( const std::string& string )
 {
   if ( !m_pResponder ) return false;
   m_state.onOutgoing( string );
-  return m_pResponder->send( string );
+  const std::string* sendBuffer = &string;
+  if (m_bufferMsgCount) {
+    m_sendBuffer += string;
+    m_bufferMsgCount--;
+    if (m_bufferMsgCount)
+      return true;
+    sendBuffer = &m_sendBuffer;
+    m_state.onEvent("Flushing buffered messages");
+  }
+  return m_pResponder->send( *sendBuffer );
 }
 
 void Session::disconnect()
@@ -1472,6 +1489,17 @@ EXCEPT ( SessionNotFound )
   return sendToTarget( message, SenderCompID( sender ),
                        TargetCompID( target ), qualifier );
 }
+
+void Session::setSessionSendBuffer
+( int msgCount,
+  const SessionID& sessionID )
+EXCEPT ( SessionNotFound )
+{
+  Session* pSession = lookupSession( sessionID );
+  if ( !pSession ) throw SessionNotFound();
+  pSession->setSendBuffer( msgCount );
+}
+
 
 std::set<SessionID> Session::getSessions()
 {

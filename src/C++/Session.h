@@ -99,6 +99,8 @@ public:
                             const std::string& targetCompID,
                             const std::string& qualifier = "" )
   EXCEPT ( SessionNotFound );
+  static void setSessionSendBuffer(int count, const SessionID& sessionID )
+  EXCEPT ( SessionNotFound );
 
   static std::set<SessionID> getSessions();
   static bool doesSessionExist( const SessionID& );
@@ -261,6 +263,7 @@ private:
   bool send( const std::string& );
   bool sendRaw( Message&, int msgSeqNum = 0 );
   bool resend( Message& message );
+  void setSendBuffer(int msgCount);
   void persist( const Message&, const std::string& ) EXCEPT ( IOException );
 
   void insertSendingTime( Header& );
@@ -359,6 +362,8 @@ private:
   MessageStoreFactory& m_messageStoreFactory;
   LogFactory* m_pLogFactory;
   Responder* m_pResponder;
+  std::string m_sendBuffer;
+  int m_bufferMsgCount;
   Mutex m_mutex;
 
   static Sessions s_sessions;
